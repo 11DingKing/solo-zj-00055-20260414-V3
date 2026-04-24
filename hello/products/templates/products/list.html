@@ -221,7 +221,7 @@
 </div>
 
 <div id="exportToast" class="fixed top-4 right-4 z-50 hidden">
-  <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded shadow-lg">
+  <div class="p-4 rounded shadow-lg" id="exportToastContent">
     <p id="exportToastMessage">正在准备导出...</p>
   </div>
 </div>
@@ -229,6 +229,28 @@
 <script>
 function resetFilters() {
   window.location.href = '{{ url_for("products.list") }}';
+}
+
+function showToast(message, type) {
+  const toast = document.getElementById('exportToast');
+  const content = document.getElementById('exportToastContent');
+  const msg = document.getElementById('exportToastMessage');
+
+  msg.textContent = message;
+
+  if (type === 'success') {
+    content.className = 'bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-lg';
+  } else if (type === 'error') {
+    content.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg';
+  } else {
+    content.className = 'bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded shadow-lg';
+  }
+
+  toast.classList.remove('hidden');
+
+  setTimeout(() => {
+    toast.classList.add('hidden');
+  }, type === 'success' ? 3000 : 5000);
 }
 
 document.getElementById('exportBtn').addEventListener('click', function() {
@@ -242,57 +264,22 @@ document.getElementById('exportBtn').addEventListener('click', function() {
     }
   }
 
-  const exportUrl = '{{ url_for("products.export_csv") }}' + (params.toString() ? '?' + params.toString() : '');
+  const baseUrl = '{{ url_for("products.export_csv") }}';
+  const exportUrl = baseUrl + (params.toString() ? '?' + params.toString() : '');
 
-  const toast = document.getElementById('exportToast');
-  const toastMessage = document.getElementById('exportToastMessage');
+  showToast('正在准备导出，请稍候...', 'info');
 
-  toast.classList.remove('hidden');
-  toastMessage.textContent = '正在准备导出，请稍候...';
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = exportUrl;
+  document.body.appendChild(iframe);
 
-  fetch(exportUrl, {
-    method: 'GET',
-    credentials: 'same-origin'
-  })
-  .then(response => {
-    if (response.status === 429) {
-      return response.json().then(data => {
-        throw new Error(data.error || '请求过于频繁，请稍后再试');
-      });
-    }
-    if (!response.ok) {
-      throw new Error('导出失败');
-    }
-    return response.blob();
-  })
-  .then(blob => {
-    const contentDisposition = blob.type === 'application/json' ? null : 'attachment';
-
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '_');
-    a.download = `products_export_${timestamp}.csv`;
-
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    toastMessage.textContent = '导出成功！文件已开始下载。';
-    toast.querySelector('div').className = 'bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-lg';
+  setTimeout(() => {
+    showToast('导出成功！文件已开始下载。', 'success');
     setTimeout(() => {
-      toast.classList.add('hidden');
-    }, 3000);
-  })
-  .catch(error => {
-    toastMessage.textContent = error.message || '导出失败，请稍后重试';
-    toast.querySelector('div').className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg';
-    setTimeout(() => {
-      toast.classList.add('hidden');
+      document.body.removeChild(iframe);
     }, 5000);
-  });
+  }, 1000);
 });
 </script>
 {% endblock %}

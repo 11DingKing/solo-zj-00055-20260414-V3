@@ -19,9 +19,7 @@ EXPORT_COLUMNS = [
     ("price", "价格"),
     ("stock", "库存"),
     ("status", "状态"),
-    ("description", "描述"),
     ("created_at", "创建时间"),
-    ("updated_at", "更新时间"),
 ]
 
 EXPORT_RATE_LIMIT_SECONDS = 60
