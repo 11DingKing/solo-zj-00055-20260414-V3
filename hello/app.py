@@ -3,7 +3,10 @@ from flask import Flask
 from werkzeug.debug import DebuggedApplication
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from hello.extensions import db, debug_toolbar, flask_static_digest
+from hello.extensions import db, debug_toolbar, flask_static_digest, login_manager
+from hello.models import User
+from hello.auth import auth
+from hello.products import products
 from hello.page.views import page
 from hello.up.views import up
 
@@ -31,6 +34,11 @@ def create_celery_app(app=None):
     return celery
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
 def create_app(settings_override=None):
     """
     Create a Flask application using the app factory pattern.
@@ -47,8 +55,15 @@ def create_app(settings_override=None):
 
     middleware(app)
 
+    login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
+    login_manager.login_message = "请先登录后再访问此页面。"
+    login_manager.login_message_category = "warning"
+
     app.register_blueprint(up)
     app.register_blueprint(page)
+    app.register_blueprint(auth)
+    app.register_blueprint(products)
 
     extensions(app)
 
