@@ -1,8 +1,12 @@
+import os
+from importlib.metadata import version
+
 from celery import Celery, Task
 from flask import Flask
 from werkzeug.debug import DebuggedApplication
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from config.settings import DEBUG
 from hello.extensions import db, debug_toolbar, flask_static_digest, login_manager
 from hello.models import User
 from hello.auth import auth
@@ -59,6 +63,14 @@ def create_app(settings_override=None):
     login_manager.login_view = "auth.login"
     login_manager.login_message = "请先登录后再访问此页面。"
     login_manager.login_message_category = "warning"
+
+    @app.context_processor
+    def inject_template_variables():
+        return {
+            "flask_ver": version("flask"),
+            "python_ver": os.environ.get("PYTHON_VERSION", "3.13"),
+            "debug": DEBUG,
+        }
 
     app.register_blueprint(up)
     app.register_blueprint(page)

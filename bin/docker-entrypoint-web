@@ -6,28 +6,30 @@ set -e
 # into your volume persisted public directory.
 cp -r /public /app
 
-# Wait for PostgreSQL to be ready (if DATABASE_URL is set)
-if [ -n "$DATABASE_URL" ] || [ -n "$POSTGRES_HOST" ]; then
-    echo "Waiting for database to be ready..."
-    for i in {1..30}; do
-        if python -c "
-from hello.app import create_app
-from hello.extensions import db
-app = create_app()
-with app.app_context():
-    try:
+# Wait for PostgreSQL to be ready
+echo "Waiting for database to be ready..."
+for i in {1..30}; do
+    DB_READY=$(python -c "
+import sys
+try:
+    from hello.app import create_app
+    from hello.extensions import db
+    app = create_app()
+    with app.app_context():
         db.engine.connect()
-        print('Database is ready!')
-        exit(0)
-    except Exception as e:
-        exit(1)
-"; then
-            break
-        fi
-        echo "Waiting for database... ($i/30)"
-        sleep 2
-    done
-fi
+        print('READY')
+        sys.exit(0)
+except Exception as e:
+    sys.exit(1)
+" 2>/dev/null || true)
+    
+    if [ "$DB_READY" = "READY" ]; then
+        echo "Database is ready!"
+        break
+    fi
+    echo "Waiting for database... ($i/30)"
+    sleep 2
+done
 
 # Check if there are any migration files (excluding .keep)
 MIGRATION_FILES=$(find /app/db/versions -type f -name "*.py" 2>/dev/null | wc -l)
