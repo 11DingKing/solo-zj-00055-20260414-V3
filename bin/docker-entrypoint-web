@@ -6,4 +6,52 @@ set -e
 # into your volume persisted public directory.
 cp -r /public /app
 
+# Wait for PostgreSQL to be ready (if DATABASE_URL is set)
+if [ -n "$DATABASE_URL" ] || [ -n "$POSTGRES_HOST" ]; then
+    echo "Waiting for database to be ready..."
+    for i in {1..30}; do
+        if python -c "
+from hello.app import create_app
+from hello.extensions import db
+app = create_app()
+with app.app_context():
+    try:
+        db.engine.connect()
+        print('Database is ready!')
+        exit(0)
+    except Exception as e:
+        exit(1)
+"; then
+            break
+        fi
+        echo "Waiting for database... ($i/30)"
+        sleep 2
+    done
+fi
+
+# Check if there are any migration files (excluding .keep)
+MIGRATION_FILES=$(find /app/db/versions -type f -name "*.py" 2>/dev/null | wc -l)
+
+if [ "$MIGRATION_FILES" -eq 0 ]; then
+    echo "No migration files found. Creating initial migration..."
+    alembic revision --autogenerate -m "Initial migration"
+fi
+
+# Run database migrations
+echo "Running database migrations..."
+alembic upgrade head
+
+# Run seed data
+echo "Running seed data..."
+python -c "
+from hello.app import create_app
+from hello.extensions import db
+from db.seeds import seed
+
+app = create_app()
+with app.app_context():
+    seed()
+    print('Seed data completed!')
+"
+
 exec "$@"
